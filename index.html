@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Moja Garancija | Nova lozinka</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:22px;background:#f3f6fa;font:16px Arial,sans-serif;color:#173456}main{max-width:440px;margin:9vh auto;background:white;border-radius:18px;padding:28px;box-shadow:0 6px 25px #1232}h1{margin:0 0 12px}label{display:block;margin-top:16px}input,button{width:100%;padding:14px;border-radius:10px;font-size:16px;margin-top:8px}input{border:1px solid #b6c4d4}button{border:0;background:#0878d1;color:white;font-weight:bold;margin-top:22px}button:disabled{opacity:.6}#message{line-height:1.5}
+</style>
+</head>
+<body><main><h1>Moja Garancija</h1><p>Postavite novu lozinku za svoj nalog.</p>
+<form id="form" hidden><label for="password">Nova lozinka (najmanje 8 znakova)</label><input id="password" type="password" minlength="8" autocomplete="new-password" required><label for="confirm">Ponovite lozinku</label><input id="confirm" type="password" minlength="8" autocomplete="new-password" required><button id="save" type="submit">Sačuvaj novu lozinku</button></form><p id="message" role="status">Proveravam link...</p></main>
+<script>
+'use strict';
+const base='https://pcslysrshgbrofsefurf.supabase.co/auth/v1';
+const apiKey='sb_publishable_hJ0JUA2KZ5cSjUx1Bb00pg_qPdEUdaR';
+const fragment=new URLSearchParams(location.hash.slice(1));
+const query=new URLSearchParams(location.search);
+const form=document.getElementById('form');
+const message=document.getElementById('message');
+let accessToken=fragment.get('access_token');
+history.replaceState(null,'',location.pathname);
+async function init(){
+ if(fragment.has('error')||query.has('error'))throw new Error('Link je istekao ili nije važeći. Zatražite novi link u aplikaciji.');
+ if(!accessToken && query.get('token_hash') && query.get('type')==='recovery'){
+  const response=await fetch(base+'/verify',{method:'POST',headers:{'apikey':apiKey,'Content-Type':'application/json'},body:JSON.stringify({token_hash:query.get('token_hash'),type:'recovery'})});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.msg||data.message||'Nevažeći link.');
+  accessToken=data.access_token;
+ }
+ if(!accessToken)throw new Error('Nema potvrde za resetovanje. Zatražite novi link iz aplikacije.');
+ form.hidden=false;message.textContent='Unesite novu lozinku.';
+}
+init().catch(e=>{form.hidden=true;message.textContent=e.message});
+form.addEventListener('submit',async e=>{
+ e.preventDefault();
+ const password=document.getElementById('password').value;
+ if(password!==document.getElementById('confirm').value){message.textContent='Lozinke se ne poklapaju.';return}
+ const button=document.getElementById('save');button.disabled=true;message.textContent='Čuvanje...';
+ try{
+  const response=await fetch(base+'/user',{method:'PUT',headers:{'apikey':apiKey,'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({password})});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.msg||data.message||'Promena nije uspela.');
+  form.hidden=true;accessToken=null;message.textContent='Lozinka je promenjena! Otvorite Moja Garancija aplikaciju i prijavite se novom lozinkom.';
+ }catch(error){message.textContent='Greška: '+error.message}finally{button.disabled=false}
+});
+</script></body></html>
